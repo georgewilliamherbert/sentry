@@ -1,3 +1,9 @@
+#!/bin/bash
+
+# debug
+echo "env"
+env
+
 # define job variables
 START_DIR=`pwd`
 
@@ -8,10 +14,27 @@ env/bin/pip uninstall --yes sentry || echo "Sentry not installed."
 
 rm -rf env/project
 mkdir -p env/project/static
-cp -r src/sentry/static/sentry/ env/project/static/
+cp -R src/sentry/static/sentry/ env/project/static/
+
+# we have to make static, then install sentry program, then build locale which depends on the sentry program being there
 make STATIC_DIR=env/project/static/sentry static
 env/bin/python setup.py install
-make STATIC_DIR=env/project/static/sentry SENTRY=env/bin/sentry locale
+
+# find me the sentry binary
+echo "DEBUG: Find the sentry binary"
+find . -type f -name sentry -ls
+find . -type f -name xgettext -ls
+
+# we should not have to do this but it's scribbling outside the build dir
+if [ -f /var/lib/jenkins/.sentry/sentry.conf.py ]; then
+        rm -f /var/lib/jenkins/.sentry/sentry.conf.py
+fi
+
+# try this
+./env/bin/sentry init
+
+# and see if this runs
+make STATIC_DIR=env/project/static/sentry SENTRY=../../env/bin/sentry locale
 
 
 # create test_project environment which uses sqlite mem tables for its database
@@ -66,5 +89,3 @@ cd /srv/repos/ubuntu && reprepro -Vb . includedeb precise $WORKSPACE/*.deb && cd
 # run chef-client on remote nodes, which will install updated packaging
 # DON'T DEPLOY
 #knife ssh -i ~/.ssh/socialcode-062011.pem -x ubuntu -a cloud.public_hostname "chef_environment:production AND role:sentry_server" "sudo chef-client"
-
-
